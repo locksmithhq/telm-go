@@ -120,7 +120,7 @@ func build(ctx context.Context, cfg *config) (*Providers, error) {
 	}
 	mp := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExp,
-			sdkmetric.WithInterval(2*time.Second),
+			sdkmetric.WithInterval(30*time.Second),
 		)),
 		sdkmetric.WithResource(res),
 	)
