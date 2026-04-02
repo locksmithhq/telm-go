@@ -53,6 +53,8 @@ const (
 type config struct {
 	serviceName string
 	endpoint    string
+	grpc        bool
+	headers     map[string]string
 }
 
 var (
@@ -69,6 +71,15 @@ type Option func(*config)
 func WithServiceName(name string) Option { return func(c *config) { c.serviceName = name } }
 func WithEndpoint(ep string) Option      { return func(c *config) { c.endpoint = ep } }
 
+// WithGRPC switches the exporter protocol from HTTP (default) to gRPC.
+// Use with endpoint "host:4317".
+func WithGRPC() Option { return func(c *config) { c.grpc = true } }
+
+// WithHeaders adds extra headers/metadata to every export request.
+// For HTTP: use for "X-API-Key" when sending via /otlp proxy.
+// For gRPC: sent as gRPC metadata on every call.
+func WithHeaders(h map[string]string) Option { return func(c *config) { c.headers = h } }
+
 // Init initializes the SDK and returns a shutdown function.
 // Should be called once at application startup.
 // After initialization, process and runtime metrics are collected automatically.
@@ -81,10 +92,17 @@ func Init(ctx context.Context, opts ...Option) (func(context.Context) error, err
 	globalCfg = cfg
 	cfgMu.Unlock()
 
-	shutdown, err := otelsetup.Initialize(ctx,
+	setupOpts := []otelsetup.Option{
 		otelsetup.WithServiceName(cfg.serviceName),
 		otelsetup.WithOtelCollectorUri(cfg.endpoint),
-	)
+	}
+	if cfg.grpc {
+		setupOpts = append(setupOpts, otelsetup.WithGRPC())
+	}
+	if len(cfg.headers) > 0 {
+		setupOpts = append(setupOpts, otelsetup.WithHeaders(cfg.headers))
+	}
+	shutdown, err := otelsetup.Initialize(ctx, setupOpts...)
 	if err != nil {
 		return shutdown, err
 	}
